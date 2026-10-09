@@ -1,0 +1,81 @@
+name: Deploy Static Website with CloudFormation
+
+# Triggers this pipeline automatically on every push to the main branch
+on:
+  push:
+    branches:
+      - main
+
+# CRITICAL: Grants the runner permission to request a short-lived OIDC token from GitHub
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  cform-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Downloads your repository files into the GitHub Actions runner machine
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Authenticates with AWS using OIDC - no hardcoded keys needed
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::932877337538:role/github-s3-deploy-role  # 🚨 SUBSTITUTE: Replace <your-account-id> with your 12-digit AWS account ID and <your-role-name> with your IAM role name
+          aws-region: sa-east-1  # 🚨 SUBSTITUTE: Replace with your AWS region e.g. us-east-1, eu-west-1, sa-east-1
+
+      # Step 3: Confirms the correct IAM role identity was assumed successfully
+      - name: Verify AWS Identity
+        run: aws sts get-caller-identity
+
+      # Step 4: Deploys the CloudFormation stack to provision the S3 bucket
+      - name: Deploy CloudFormation Stack
+        uses: aws-actions/aws-cloudformation-github-deploy@v1
+        with:
+          name: MyWebsiteStack  # 🚨 SUBSTITUTE: Replace with your preferred CloudFormation stack name e.g. MyWebsiteStack
+          template: template.yaml
+          no-fail-on-empty-changeset: "1"  # Prevents pipeline failure if template.yaml has no changes
+          parameter-overrides: "BucketName=my-portfolio-site-123456789012"  # 🚨 SUBSTITUTE: Replace with your unique S3 bucket name
+
+      # Step 5: Applies the public read bucket policy via CLI
+      # This is done here instead of in template.yaml because AWS account-level
+      # EarlyValidation hook blocks CloudFormation from deploying Principal: '*' policies
+      - name: Apply Public Bucket Policy
+        run: |
+          aws s3api put-bucket-policy \
+            --bucket my-portfolio-site-123456789012 \
+            --policy '{
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "PublicReadGetObject",
+                  "Effect": "Allow",
+                  "Principal": "*",
+                  "Action": "s3:GetObject",
+                  "Resource": "arn:aws:s3:::my-portfolio-site-123456789012/*"
+                }
+              ]
+            }'
+
+      # Step 6: Uploads all website files to the S3 bucket
+      - name: Sync Site Assets to S3
+        run: |
+          aws s3 sync . s3://my-portfolio-site-123456789012 \
+            --delete \
+            --exclude ".git*" \
+            --exclude "template.yaml" \
+            --exclude ".github*" \
+            --exclude "*.md"
+
+      # Step 7: Retrieves and prints the live website URL from the CloudFormation stack outputs
+      - name: Print Live Website URL
+        run: |
+          echo "🚀 Deployed Successfully via CloudFormation!"
+          echo "Your live website URL is:"
+          aws cloudformation describe-stacks \
+            --stack-name MyWebsiteStack \
+            --query "Stacks[0].Outputs[?OutputKey=='WebsiteURL'].OutputValue" \
+            --output text
