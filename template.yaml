@@ -1,18 +1,15 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'CI/CD Phase: Production-ready Static Website Hosting on AWS S3'
 
-# NOTE: The BucketPolicy (public read access) is intentionally excluded from this template.
-# AWS::EarlyValidation::PropertyValidation hook blocks CloudFormation from deploying any
-# bucket policy with Principal: '*'. The public read policy is therefore applied as a
-# separate step inside the GitHub Actions workflow after the stack is created.
+# NOTE: BucketPolicy is intentionally excluded from this template.
+# AWS EarlyValidation hook blocks CloudFormation from deploying Principal: '*' policies.
+# The public read policy is applied as a separate step in the GitHub Actions workflow.
 
 Parameters:
   BucketName:
     Type: String
     Description: 'The globally unique name for your static website S3 bucket'
-    Default: 'my-portfolio-site-123456789012' # 🚨 SUBSTITUTE: Replace with your own globally unique S3 bucket name
-                                        # Example: 'my-portfolio-site-123456789012'
-                                        # Rules: lowercase only, no spaces, globally unique across all AWS accounts
+    Default: 'my-african-restaurant-site-932877337538'
 
 Resources:
   # Block A: Provisions the base S3 Bucket container
@@ -28,13 +25,13 @@ Resources:
         RestrictPublicBuckets: false
       # Block C: Turns the bucket into an active web routing engine
       WebsiteConfiguration:
-        IndexDocument: index.html  # SUBSTITUTE: Replace if your main page has a different filename
-        ErrorDocument: error.html  # SUBSTITUTE: Replace if your error page has a different filename
+        IndexDocument: index.html
+        ErrorDocument: error.html
       Tags:
         - Key: Name
-          Value: 'Deployment-static'  # SUBSTITUTE: Replace with a descriptive name for your project
+          Value: 'African Restaurant Web Hoster'
         - Key: Environment
-          Value: 'Production'         # SUBSTITUTE: Replace with your environment e.g. 'Staging', 'Dev'
+          Value: 'Production'
 
 Outputs:
   WebsiteURL:
