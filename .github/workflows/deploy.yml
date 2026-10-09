@@ -21,7 +21,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: sa-east-1
+          aws-region: <your-aws-region>
 
       - name: Verify AWS Identity
         run: aws sts get-caller-identity
@@ -29,15 +29,15 @@ jobs:
       - name: Deploy CloudFormation Stack
         uses: aws-actions/aws-cloudformation-github-deploy@v1
         with:
-          name: AfricanRestaurantWebsiteStack
+          name: <your-stack-name>
           template: template.yaml
           no-fail-on-empty-changeset: "1"
-          parameter-overrides: "BucketName=my-african-restaurant-site-932877337538"
+          parameter-overrides: "BucketName=<your-bucket-name>"
 
       - name: Apply Public Bucket Policy
         run: |
           aws s3api put-bucket-policy \
-            --bucket my-african-restaurant-site-932877337538 \
+            --bucket <your-bucket-name> \
             --policy '{
               "Version": "2012-10-17",
               "Statement": [
@@ -46,14 +46,14 @@ jobs:
                   "Effect": "Allow",
                   "Principal": "*",
                   "Action": "s3:GetObject",
-                  "Resource": "arn:aws:s3:::my-african-restaurant-site-932877337538/*"
+                  "Resource": "arn:aws:s3:::<your-bucket-name>/*"
                 }
               ]
             }'
 
       - name: Sync Site Assets to S3
         run: |
-          aws s3 sync . s3://my-african-restaurant-site-932877337538 \
+          aws s3 sync . s3://<your-bucket-name> \
             --delete \
             --exclude ".git*" \
             --exclude "template.yaml" \
@@ -66,6 +66,6 @@ jobs:
           echo "🚀 Deployed Successfully via CloudFormation!"
           echo "Your live website URL is:"
           aws cloudformation describe-stacks \
-            --stack-name AfricanRestaurantWebsiteStack \
+            --stack-name <your-stack-name> \
             --query "Stacks[0].Outputs[?OutputKey=='WebsiteURL'].OutputValue" \
             --output text
